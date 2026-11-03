@@ -3,13 +3,14 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton, QuantityControl } from '@/components/ui';
-import { products } from '@/data/catalog';
 import { priceFor, useAppStore } from '@/store/AppStore';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors, radius, spacing } from '@/theme';
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { mode, isFavorite, toggleFavorite, quantityFor } = useAppStore();
+  const { products } = useCatalogStore();
   const product = products.find((item) => item.id === id);
   if (!product) return <View style={styles.center}><Text>Product not found.</Text></View>;
   const quantity = quantityFor(product.id);

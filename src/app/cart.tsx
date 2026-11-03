@@ -3,12 +3,13 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton, EmptyState, QuantityControl, ScreenHeader, Surface } from '@/components/ui';
-import { products } from '@/data/catalog';
 import { priceFor, useAppStore } from '@/store/AppStore';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors, radius, spacing } from '@/theme';
 
 export default function CartScreen() {
   const { cart, mode, subtotal, deliveryFee, total } = useAppStore();
+  const { products } = useCatalogStore();
   if (!cart.length) {
     return <View style={styles.page}><ScreenHeader title="Your basket" /><EmptyState icon="basket-outline" title="Your basket is empty" message="Fresh produce and great prices are waiting for you." action="Start shopping" onAction={() => router.replace('/(tabs)')} /></View>;
   }

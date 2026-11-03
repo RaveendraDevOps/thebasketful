@@ -203,6 +203,8 @@ basketful/
 │   │   └── product/        Product detail route
 │   ├── components/         Reusable product and UI components
 │   ├── data/               Demo catalog, addresses, slots, and orders
+│   ├── lib/                Supabase client configuration
+│   ├── services/           Commerce API and Razorpay clients
 │   ├── store/              Persistent application state
 │   ├── theme/              Colors, spacing, radius, and shadows
 │   ├── types/              Shared TypeScript models
@@ -211,19 +213,105 @@ basketful/
 ├── Dockerfile              Multi-stage production web image
 ├── nginx.conf              Static routing and cache rules
 ├── package.json            Dependencies and scripts
+├── supabase/               Database migrations, seed data, and Edge Functions
 └── tsconfig.json           TypeScript configuration
 ```
 
 ## Data and state
 
-Demo content is defined in `src/data/catalog.ts`. The application stores onboarding status, shopping mode, basket, favorites, and orders locally using AsyncStorage.
+When Supabase environment variables are absent, the app runs in demo mode using `src/data/catalog.ts`. When configured, it loads the catalog from Supabase, requires phone OTP authentication, stores customer addresses and orders in PostgreSQL, and creates payments through secure Edge Functions. Basket, favorites, and shopping mode remain cached locally with AsyncStorage.
 
 To clear local demo state:
 
 - Mobile: clear the Expo Go/app storage or uninstall the app.
 - Web: clear site storage from browser developer tools.
 
-No backend, authentication server, payment gateway, inventory service, analytics service, or notification service is currently connected.
+## Configure the production backend
+
+The repository includes:
+
+- PostgreSQL commerce schema and Row Level Security policies
+- Seed catalog
+- Supabase phone OTP client integration
+- Customer address and order services
+- Razorpay order creation, signature verification, and webhook functions
+- Atomic stock reduction after a verified payment
+
+Create Supabase and Razorpay accounts before enabling production mode.
+
+### 1. Create and link Supabase
+
+Create a project at [supabase.com](https://supabase.com), copy `.env.example` to `.env`, and add the project URL and publishable key:
+
+```bash
+cp .env.example .env
+```
+
+Never place the Supabase service-role key or Razorpay secret in `.env` or client code.
+
+Install/login to the Supabase CLI, link the project, and deploy the database:
+
+```bash
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase db push
+```
+
+Load the initial catalog using the Supabase SQL Editor with `supabase/seed.sql`, or during local development:
+
+```bash
+npx supabase db reset
+```
+
+### 2. Configure phone OTP
+
+In Supabase Dashboard:
+
+1. Open Authentication → Providers → Phone.
+2. Enable phone authentication.
+3. Configure a supported SMS provider and sender.
+4. Set OTP expiry and rate limits appropriate for production.
+5. Test with non-production phone numbers before enabling customers.
+
+### 3. Configure Razorpay server secrets
+
+Generate test keys in Razorpay Dashboard, then store secrets only in Supabase:
+
+```bash
+npx supabase secrets set RAZORPAY_KEY_ID=rzp_test_REPLACE_ME
+npx supabase secrets set RAZORPAY_KEY_SECRET=REPLACE_ME
+npx supabase secrets set RAZORPAY_WEBHOOK_SECRET=REPLACE_ME
+```
+
+Deploy the functions:
+
+```bash
+npx supabase functions deploy create-payment
+npx supabase functions deploy verify-payment
+npx supabase functions deploy razorpay-webhook --no-verify-jwt
+```
+
+In Razorpay Dashboard, create a webhook for `payment.captured` using:
+
+```text
+https://YOUR_PROJECT_REF.supabase.co/functions/v1/razorpay-webhook
+```
+
+Use the same webhook secret configured in Supabase. Start with Razorpay Test Mode. Complete account activation, KYC, policies, and end-to-end testing before replacing test credentials with live credentials.
+
+### 4. Configure app build variables
+
+For local development, set the public values in `.env`. For EAS production builds, add them to the production environment:
+
+```bash
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value https://YOUR_PROJECT_REF.supabase.co
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value YOUR_PUBLISHABLE_KEY
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_RAZORPAY_KEY_ID --value rzp_live_REPLACE_ME
+```
+
+Public client keys are identifiers, not server secrets. Database RLS policies and server-side verification remain mandatory.
+
+Because Razorpay includes native code, use an EAS development/preview build rather than Expo Go when testing real checkout.
 
 ## Build an Android App Bundle
 

@@ -2,27 +2,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAppStore } from '@/store/AppStore';
+import { useAuthStore } from '@/store/AuthStore';
 import { colors, radius, spacing } from '@/theme';
 import { CustomerMode } from '@/types';
 
 export default function AccountScreen() {
   const { mode, setMode } = useAppStore();
+  const { configured, user, signOut } = useAuthStore();
+  const displayName = user?.user_metadata?.full_name || (configured ? 'Basketful customer' : 'Raveendra Bandi');
+  const displayPhone = user?.phone || '+91 98••• ••210';
+  const initials = displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase();
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.eyebrow}>MY BASKETFUL</Text>
       <Text style={styles.title}>Account</Text>
-      <View style={styles.profile}><View style={styles.avatar}><Text style={styles.initial}>RB</Text></View><View style={styles.profileCopy}><Text style={styles.name}>Raveendra Bandi</Text><Text style={styles.phone}>+91 98••• ••210</Text></View><Ionicons name="create-outline" size={20} color={colors.primary} /></View>
+      <View style={styles.profile}><View style={styles.avatar}><Text style={styles.initial}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{displayName}</Text><Text style={styles.phone}>{displayPhone}</Text></View><Ionicons name="create-outline" size={20} color={colors.primary} /></View>
       <Text style={styles.sectionLabel}>SHOPPING MODE</Text>
       <View style={styles.modeRow}><ModeButton mode="household" current={mode} icon="home-outline" title="Household" onPress={setMode} /><ModeButton mode="business" current={mode} icon="storefront-outline" title="Business" onPress={setMode} /></View>
       <Text style={styles.sectionLabel}>YOUR DETAILS</Text>
       <View style={styles.menu}>
-        <MenuItem icon="location-outline" title="Saved addresses" />
+        <MenuItem icon="location-outline" title="Saved addresses" onPress={() => configured && router.push('/address/new' as never)} />
         <MenuItem icon="heart-outline" title="Saved items" onPress={() => router.push('/favorites')} />
         <MenuItem icon="receipt-outline" title="Your orders" onPress={() => router.push('/(tabs)/orders')} />
         <MenuItem icon="notifications-outline" title="Notifications" />
       </View>
       <Text style={styles.sectionLabel}>SUPPORT</Text>
       <View style={styles.menu}><MenuItem icon="help-circle-outline" title="Help centre" /><MenuItem icon="chatbubble-ellipses-outline" title="Chat with us" /><MenuItem icon="document-text-outline" title="Terms & privacy" /></View>
+      {configured && user && <Pressable onPress={() => signOut()} style={styles.signOut}><Ionicons name="log-out-outline" size={19} color={colors.danger} /><Text style={styles.signOutText}>Sign out</Text></Pressable>}
       <Text style={styles.version}>Basketful MVP · Version 1.0.0</Text>
     </ScrollView>
   );
@@ -58,5 +64,7 @@ const styles = StyleSheet.create({
   menuItem: { minHeight: 62, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   menuIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   menuText: { flex: 1, color: colors.text, fontWeight: '700', fontSize: 13, marginLeft: spacing.md },
+  signOut: { height: 52, marginTop: spacing.xl, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  signOutText: { color: colors.danger, fontWeight: '800' },
   version: { color: colors.muted, fontSize: 10, textAlign: 'center', marginTop: spacing.xl },
 });

@@ -20,7 +20,7 @@ export type Product = {
 
 export type CartLine = { productId: string; quantity: number };
 export type Address = { id: string; label: string; detail: string };
-export type OrderStatus = 'Confirmed' | 'Packed' | 'Out for delivery' | 'Delivered';
+export type OrderStatus = 'Confirmed' | 'Packed' | 'Out for delivery' | 'Delivered' | 'Cancelled' | 'Payment failed';
 export type Order = {
   id: string;
   date: string;

@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenHeader, Surface } from '@/components/ui';
 import { useAppStore } from '@/store/AppStore';
+import { useAuthStore } from '@/store/AuthStore';
+import { getOrder } from '@/services/commerce';
 import { colors, spacing } from '@/theme';
-import { OrderStatus } from '@/types';
+import { Order, OrderStatus } from '@/types';
 
 const steps: { status: OrderStatus; icon: keyof typeof Ionicons.glyphMap }[] = [
   { status: 'Confirmed', icon: 'checkmark-circle-outline' },
@@ -16,7 +19,12 @@ const steps: { status: OrderStatus; icon: keyof typeof Ionicons.glyphMap }[] = [
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { orders } = useAppStore();
-  const order = orders.find((item) => item.id === id);
+  const { configured } = useAuthStore();
+  const [remoteOrder, setRemoteOrder] = useState<Order | null>(null);
+  useEffect(() => {
+    if (configured && id) getOrder(id).then(setRemoteOrder).catch(() => setRemoteOrder(null));
+  }, [configured, id]);
+  const order = configured ? remoteOrder : orders.find((item) => item.id === id);
   if (!order) return <View style={styles.page}><ScreenHeader title="Order" /><View style={styles.center}><Text>Order not found.</Text></View></View>;
   const currentIndex = steps.findIndex((step) => step.status === order.status);
   return (
@@ -24,7 +32,7 @@ export default function OrderDetailScreen() {
       <ScreenHeader title={`Order #${order.id}`} />
       <ScrollView contentContainerStyle={styles.content}>
         <Surface>
-          <Text style={styles.arriving}>{order.status === 'Delivered' ? 'Delivered' : 'Arriving in your selected slot'}</Text>
+          <Text style={styles.arriving}>{order.status === 'Delivered' ? 'Delivered' : order.status === 'Cancelled' || order.status === 'Payment failed' ? order.status : 'Arriving in your selected slot'}</Text>
           <Text style={styles.slot}>{order.slot}</Text>
           <View style={styles.timeline}>
             {steps.map((step, index) => {

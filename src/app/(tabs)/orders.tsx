@@ -1,13 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '@/components/ui';
 import { useAppStore } from '@/store/AppStore';
+import { useAuthStore } from '@/store/AuthStore';
+import { listOrders } from '@/services/commerce';
 import { colors, radius, spacing } from '@/theme';
 import { Order } from '@/types';
 
 export default function OrdersScreen() {
-  const { orders } = useAppStore();
+  const { orders: demoOrders } = useAppStore();
+  const { configured, user } = useAuthStore();
+  const [remoteOrders, setRemoteOrders] = useState<Order[]>([]);
+  useEffect(() => {
+    if (configured && user) listOrders().then(setRemoteOrders).catch(() => setRemoteOrders([]));
+  }, [configured, user]);
+  const orders = configured ? remoteOrders : demoOrders;
   return (
     <View style={styles.page}>
       <View style={styles.header}><Text style={styles.eyebrow}>YOUR PURCHASES</Text><Text style={styles.title}>Orders</Text></View>

@@ -1,12 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 import { ProductGrid } from '@/components/ProductGrid';
 import { EmptyState, ScreenHeader } from '@/components/ui';
-import { products } from '@/data/catalog';
 import { useAppStore } from '@/store/AppStore';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors } from '@/theme';
 
 export default function FavoritesScreen() {
   const { favorites } = useAppStore();
+  const { products } = useCatalogStore();
   const items = products.filter((product) => favorites.includes(product.id));
   return (
     <View style={styles.page}>

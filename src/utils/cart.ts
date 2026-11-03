@@ -4,9 +4,9 @@ import { CartLine, CustomerMode, Product } from '@/types';
 export const priceFor = (product: Product, mode: CustomerMode) =>
   mode === 'business' ? product.businessPrice : product.price;
 
-export const calculateSubtotal = (cart: CartLine[], mode: CustomerMode) =>
+export const calculateSubtotal = (cart: CartLine[], mode: CustomerMode, catalog: Product[] = products) =>
   cart.reduce((sum, line) => {
-    const product = products.find((item) => item.id === line.productId);
+    const product = catalog.find((item) => item.id === line.productId);
     return sum + (product ? priceFor(product, mode) * line.quantity : 0);
   }, 0);
 

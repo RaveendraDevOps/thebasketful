@@ -3,12 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CartBar, ProductCard, SectionTitle } from '@/components/ui';
-import { categories, products } from '@/data/catalog';
 import { useAppStore } from '@/store/AppStore';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors, radius, spacing } from '@/theme';
 
 export default function HomeScreen() {
   const { mode } = useAppStore();
+  const { categories, products } = useCatalogStore();
   const featured = products.filter((product) => product.featured);
   return (
     <View style={styles.page}>

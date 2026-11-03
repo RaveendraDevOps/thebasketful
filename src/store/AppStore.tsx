@@ -3,6 +3,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 import { initialOrders } from '@/data/catalog';
 import { CartLine, CustomerMode, Order } from '@/types';
 import { calculateSubtotal } from '@/utils/cart';
+import { useCatalogStore } from '@/store/CatalogStore';
 
 export { priceFor } from '@/utils/cart';
 
@@ -42,6 +43,7 @@ const STORAGE_KEY = 'basketful-state-v1';
 const AppContext = createContext<Store | null>(null);
 
 export function AppStoreProvider({ children }: PropsWithChildren) {
+  const { products } = useCatalogStore();
   const [state, setState] = useState(initial);
   const [hydrated, setHydrated] = useState(false);
 
@@ -56,7 +58,7 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
     if (hydrated) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
   }, [hydrated, state]);
 
-  const subtotal = calculateSubtotal(state.cart, state.mode);
+  const subtotal = calculateSubtotal(state.cart, state.mode, products);
   const deliveryFee = subtotal === 0 || subtotal >= (state.mode === 'business' ? 1500 : 499) ? 0 : 39;
   const value = useMemo<Store>(() => ({
     ...state,

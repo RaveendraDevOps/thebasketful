@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CartBar } from '@/components/ui';
-import { categories, products } from '@/data/catalog';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors, radius, spacing } from '@/theme';
 
 export default function CategoriesScreen() {
+  const { categories, products } = useCatalogStore();
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>

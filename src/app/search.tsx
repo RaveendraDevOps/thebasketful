@@ -4,15 +4,16 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { ProductGrid } from '@/components/ProductGrid';
 import { CartBar } from '@/components/ui';
-import { products } from '@/data/catalog';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors, radius, spacing } from '@/theme';
 
 export default function SearchScreen() {
+  const { products } = useCatalogStore();
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return needle ? products.filter((product) => `${product.name} ${product.category} ${product.origin}`.toLowerCase().includes(needle)) : products;
-  }, [query]);
+  }, [products, query]);
   return (
     <View style={styles.page}>
       <View style={styles.top}>

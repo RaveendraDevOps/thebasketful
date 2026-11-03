@@ -2,11 +2,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { ProductGrid } from '@/components/ProductGrid';
 import { CartBar, ScreenHeader } from '@/components/ui';
-import { categories, products } from '@/data/catalog';
+import { useCatalogStore } from '@/store/CatalogStore';
 import { colors } from '@/theme';
 
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { categories, products } = useCatalogStore();
   const category = categories.find((item) => item.id === id);
   const filtered = products.filter((product) => product.category === id);
   return (

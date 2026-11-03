@@ -1,26 +1,57 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Href, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton, ScreenHeader, Surface } from '@/components/ui';
-import { addresses, slots } from '@/data/catalog';
+import { addresses as demoAddresses, slots } from '@/data/catalog';
+import { createPaymentOrder, CustomerAddress, listAddresses, verifyPayment } from '@/services/commerce';
+// Metro selects razorpay.native.ts or razorpay.web.ts for the target platform.
+// eslint-disable-next-line import/no-unresolved
+import { openRazorpayCheckout } from '@/services/razorpay';
 import { useAppStore } from '@/store/AppStore';
+import { useAuthStore } from '@/store/AuthStore';
 import { colors, radius, spacing } from '@/theme';
 import { canCheckout } from '@/utils/cart';
 
-type Payment = 'UPI' | 'Cash on delivery' | 'Card';
-
 export default function CheckoutScreen() {
-  const { cart, total, placeOrder } = useAppStore();
-  const [addressId, setAddressId] = useState(addresses[0].id);
+  const { cart, total, mode, placeOrder, clearCart } = useAppStore();
+  const { configured, user } = useAuthStore();
+  const [addresses, setAddresses] = useState<CustomerAddress[]>(configured ? [] : demoAddresses.map((item) => ({ ...item, recipientName: '', phone: '', line1: item.detail, city: '', state: '', postalCode: '' })));
+  const [addressId, setAddressId] = useState(configured ? '' : demoAddresses[0].id);
   const [slot, setSlot] = useState(slots[0]);
-  const [payment, setPayment] = useState<Payment>('UPI');
+  const [busy, setBusy] = useState(configured);
+  useEffect(() => {
+    if (!configured) return;
+    listAddresses()
+      .then((items) => { setAddresses(items); setAddressId(items[0]?.id ?? ''); })
+      .catch((error) => Alert.alert('Addresses unavailable', error.message))
+      .finally(() => setBusy(false));
+  }, [configured]);
   if (!cart.length) return null;
-  const submit = () => {
+  const submit = async () => {
     const address = addresses.find((item) => item.id === addressId);
-    if (!address || !canCheckout(cart, address.detail, slot, payment)) return Alert.alert('Missing details', 'Select delivery and payment details.');
-    const order = placeOrder(address.detail, slot);
-    router.replace({ pathname: '/confirmation', params: { id: order.id } });
+    if (!address || !canCheckout(cart, address.detail, slot, 'online')) return Alert.alert('Missing details', 'Select a delivery address and slot.');
+    if (!configured) {
+      const order = placeOrder(address.detail, slot);
+      return router.replace({ pathname: '/confirmation', params: { id: order.id } });
+    }
+    setBusy(true);
+    try {
+      const paymentOrder = await createPaymentOrder(address.id, slot, mode, cart);
+      const result = await openRazorpayCheckout(paymentOrder, { phone: user?.phone });
+      await verifyPayment({
+        basketfulOrderId: paymentOrder.basketfulOrderId,
+        razorpayOrderId: result.razorpay_order_id,
+        razorpayPaymentId: result.razorpay_payment_id,
+        razorpaySignature: result.razorpay_signature,
+      });
+      clearCart();
+      router.replace({ pathname: '/confirmation', params: { id: paymentOrder.displayId } });
+    } catch (error) {
+      Alert.alert('Payment not completed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <View style={styles.page}>
@@ -29,6 +60,7 @@ export default function CheckoutScreen() {
         <StepTitle number="1" title="Delivery address" />
         <View style={styles.stack}>
           {addresses.map((address) => <Choice key={address.id} active={addressId === address.id} icon={address.id === 'home' ? 'home-outline' : 'storefront-outline'} title={address.label} subtitle={address.detail} onPress={() => setAddressId(address.id)} />)}
+          {configured && <AppButton title={addresses.length ? 'Add another address' : 'Add delivery address'} variant="secondary" onPress={() => router.push('/address/new' as Href)} />}
         </View>
         <StepTitle number="2" title="Delivery slot" />
         <View style={styles.slotGrid}>
@@ -36,13 +68,11 @@ export default function CheckoutScreen() {
         </View>
         <StepTitle number="3" title="Payment method" />
         <Surface style={styles.paymentBox}>
-          <PaymentChoice title="UPI" subtitle="Google Pay, PhonePe, Paytm" icon="phone-portrait-outline" active={payment === 'UPI'} onPress={() => setPayment('UPI')} />
-          <PaymentChoice title="Card" subtitle="Credit or debit card" icon="card-outline" active={payment === 'Card'} onPress={() => setPayment('Card')} />
-          <PaymentChoice title="Cash on delivery" subtitle="Pay when your order arrives" icon="cash-outline" active={payment === 'Cash on delivery'} onPress={() => setPayment('Cash on delivery')} />
+          <PaymentChoice title="Secure online payment" subtitle="UPI, cards, wallets and netbanking through Razorpay" icon="shield-checkmark-outline" />
         </Surface>
-        <Text style={styles.demo}>Demo checkout: no real payment will be processed.</Text>
+        {!configured && <Text style={styles.demo}>Demo mode: no real payment will be processed.</Text>}
       </ScrollView>
-      <View style={styles.footer}><View><Text style={styles.payLabel}>TOTAL</Text><Text style={styles.pay}>₹{total}</Text></View><View style={styles.buttonWrap}><AppButton title={`Place order · ₹${total}`} onPress={submit} /></View></View>
+      <View style={styles.footer}><View><Text style={styles.payLabel}>TOTAL</Text><Text style={styles.pay}>₹{total}</Text></View><View style={styles.buttonWrap}>{busy ? <ActivityIndicator color={colors.primary} /> : <AppButton title={`${configured ? 'Pay securely' : 'Place order'} · ₹${total}`} onPress={submit} disabled={configured && !addresses.length} />}</View></View>
     </View>
   );
 }
@@ -55,8 +85,8 @@ function Choice({ active, icon, title, subtitle, onPress }: { active: boolean; i
   return <Pressable onPress={onPress} style={[styles.choice, active && styles.choiceActive]}><View style={styles.choiceIcon}><Ionicons name={icon} size={22} color={colors.primary} /></View><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>{title}</Text><Text style={styles.choiceSubtitle}>{subtitle}</Text></View><Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={21} color={active ? colors.primary : colors.muted} /></Pressable>;
 }
 
-function PaymentChoice({ active, icon, title, subtitle, onPress }: { active: boolean; icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={styles.payment}><Ionicons name={icon} size={24} color={colors.primary} /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>{title}</Text><Text style={styles.choiceSubtitle}>{subtitle}</Text></View><Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={21} color={active ? colors.primary : colors.muted} /></Pressable>;
+function PaymentChoice({ icon, title, subtitle }: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string }) {
+  return <View style={styles.payment}><Ionicons name={icon} size={24} color={colors.primary} /><View style={styles.choiceCopy}><Text style={styles.choiceTitle}>{title}</Text><Text style={styles.choiceSubtitle}>{subtitle}</Text></View><Ionicons name="checkmark-circle" size={21} color={colors.primary} /></View>;
 }
 
 const styles = StyleSheet.create({

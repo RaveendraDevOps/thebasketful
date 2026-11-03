@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect } from 'expo-router';
+import { Href, Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/ui';
 import { useAppStore } from '@/store/AppStore';
+import { useAuthStore } from '@/store/AuthStore';
 import { colors, radius, spacing } from '@/theme';
 import { CustomerMode } from '@/types';
 
 export default function WelcomeScreen() {
   const { hasOnboarded, completeOnboarding } = useAppStore();
+  const { configured, user } = useAuthStore();
   const [mode, setMode] = useState<CustomerMode>('household');
+  if (configured && !user) return <Redirect href={'/auth' as Href} />;
   if (hasOnboarded) return <Redirect href="/(tabs)" />;
 
   return (
